@@ -121,6 +121,17 @@ const vertexShader = `
 		if (uSelectedAttractor == 14.) {
 			distanceColorMultiplier = 0.7;
 		}
+		
+		if (uSelectedAttractor == 15.) {
+			distanceColorMultiplier = 0.94;
+		}
+
+		if (uSelectedAttractor == 16.) {
+			distanceColorMultiplier = 0.94;
+		}
+		if (uSelectedAttractor == 17.) {
+			distanceColorMultiplier = 0.92;
+		}
 
 		if (uSelectedAttractor == -1.0) {
 			distanceColorMultiplier = 0.01;
@@ -300,7 +311,7 @@ const simulationFragmentShader = `
 		float f = uF;
 
 		// Timestep 
-		float dt = 0.03;
+		float dt = 0.015;
 
 		float x = pos.x;
 		float y = pos.y;
@@ -309,8 +320,8 @@ const simulationFragmentShader = `
 		float dx, dy, dz;
 
 		dx = ((z-b) * x - d*y) * dt;
-		dy = (d * x + (z-b) * y) * dt;
-		dz = (c + a*z - ((z*z*z) / 3.0) - (x*x) + f * z * (x*x*x)) * dt;
+		dy = (d * x + ((z-b) * y)) * dt;
+		dz = (c + a*z - (pow(z, 3.) / 3.0) - (pow(x, 2.) + pow(y, 2.))*(1. - e*z) + (f * z * (pow(x, 3.)))) * dt;
 
 		return vec3(dx, dy, dz);
 	}
@@ -522,6 +533,69 @@ const simulationFragmentShader = `
 	// 	return vec3(dx, dy, dz);
 	// }
 
+	vec3 lorenz83Attractor(vec3 pos) {
+		float a = uA;
+		float b = uB;
+		float c = uC;
+		float d = uD;
+
+		
+		// Timestep 
+		float dt = 0.01;
+		
+		float x = pos.x;
+		float y = pos.y;
+		float z = pos.z;
+		float dx, dy, dz;
+
+		dx = (-a * x - pow(y, 2.) - pow(z, 2.) + a*c) * dt;
+		dy = (-y + x*y - b*x*z + d) * dt;
+		dz = (-z + b*x*y + x*z) * dt;
+
+		return vec3(dx, dy, dz);
+
+	}
+
+	
+	vec3 sprottAttractor(vec3 pos) {
+		float a = uA;
+		float b = uB;
+
+		// Timestep 
+		float dt = 0.04;
+		
+		float x = pos.x;
+		float y = pos.y;
+		float z = pos.z;
+		float dx, dy, dz;
+
+		dx = (y + a*x*y + x*z) * dt;
+		dy = (1. - b*pow(x, 2.) + y*z) * dt;
+		dz = (x - pow(x, 2.) - pow(y, 2.)) * dt;
+
+		return vec3(dx, dy, dz);
+	}
+
+	vec3 fourWingAttractor(vec3 pos) {
+		float a = uA;
+		float b = uB;
+		float c = uC;
+
+		// Timestep 
+		float dt = 0.03;
+		
+		float x = pos.x;
+		float y = pos.y;
+		float z = pos.z;
+		float dx, dy, dz;
+
+		dx = (a*x + y*z) * dt;
+		dy = (b*x + c*y - x*z) * dt;
+		dz = (-z - x*y) * dt;
+
+		return vec3(dx, dy, dz);
+	}
+
 	void main() {
 		vec3 pos = texture2D(positions, vUv).rgb;
 		vec3 delta;
@@ -586,6 +660,17 @@ const simulationFragmentShader = `
 		// 	delta = kingsDreamAttractor(pos);
 		//   }
 
+		if (attractor == 15.) {
+			delta = lorenz83Attractor(pos);
+		}
+
+		if (attractor == 16.) {
+			delta = sprottAttractor(pos);
+		}
+
+		if (attractor == 17.) {
+			delta = fourWingAttractor(pos);
+		}
 
 
 		if (attractor == -1.0) {
@@ -789,6 +874,24 @@ const UnifiedChaoticSystemParams = {
 	e: 0.65,
 }
 
+const Lorenz83Params = {
+	a: 0.95,
+	b: 7.91,
+	c: 4.83,
+	d: 4.66
+}
+
+const SprottParams = {
+	a: 2.07,
+	b: 1.79
+}
+
+const FourWingParams = {
+	a: 0.2,
+	b: 0.01,
+	c: -0.4
+}
+
 
 const mapParamToLevaParam = (param) => {
 	return Object.entries(param).reduce((acc, [key, value]) => {
@@ -833,6 +936,12 @@ const getBaseParamsPerAttractor = (attractorId, mapToLeva = true) => {
 			return mapToLeva ? mapParamToLevaParam(HalvorsenBaseParams) : HalvorsenBaseParams
 		case 12:
 			return mapToLeva ? mapParamToLevaParam(UnifiedChaoticSystemParams) : UnifiedChaoticSystemParams
+		case 15:
+			return mapToLeva ? mapParamToLevaParam(Lorenz83Params) : Lorenz83Params
+		case 16:
+			return mapToLeva ? mapParamToLevaParam(SprottParams) : SprottParams
+		case 17:
+			return mapToLeva ? mapParamToLevaParam(FourWingParams) : FourWingParams
 		default:
 			return {};
 	}
@@ -858,9 +967,12 @@ const Particles = () => {
 				'Dradas Attractor': 4,
 				'Aizawa Attractor': 6,
 				'Chen-Lee Attractor': 7,
+				'Lorenz 83 Attractor': 15,
 				'Rossler Attractor': 8,
 				'Sprott B Attractor': 9,
 				'Sprott-Linz F Attractor': 10,
+				'Sprott Attractor': 16,
+				'Four-Wing Attractor': 17,
 				'Halvorsen Attractor': 11,
 				'Three-Scroll Unified Chaotic System Attractor 1': 12,
 				'Dequan Attractor': 3,
