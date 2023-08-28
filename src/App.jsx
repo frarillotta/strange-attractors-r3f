@@ -142,6 +142,8 @@ const vertexShader = `
 		// Size attenuation;
 		//   gl_PointSize *= step(1.0 - (1.0/64.0), position.x) + 0.1;
 		gl_PointSize *= (uSizeAttenuationMultiplier / - viewPosition.z);
+  
+		gl_PointSize max(1., gl_PointSize);
 		gl_Position = projectedPosition;
 
 		float dist = distance(pos, vec3(.0));
