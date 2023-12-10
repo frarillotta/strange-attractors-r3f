@@ -59,6 +59,32 @@ const vertexShader = `
 	uniform float uSizeAttenuationMultiplier;
 
 	varying vec3 vColor;
+
+
+	vec3 oklab_mix( vec3 colA, vec3 colB, float h )
+	{
+		// https://bottosson.github.io/posts/oklab
+		const mat3 kCONEtoLMS = mat3(                
+			 0.4121656120,  0.2118591070,  0.0883097947,
+			 0.5362752080,  0.6807189584,  0.2818474174,
+			 0.0514575653,  0.1074065790,  0.6302613616);
+		const mat3 kLMStoCONE = mat3(
+			 4.0767245293, -1.2681437731, -0.0041119885,
+			-3.3072168827,  2.6093323231, -0.7034763098,
+			 0.2307590544, -0.3411344290,  1.7068625689);
+						
+		// rgb to cone (arg of pow can't be negative)
+		vec3 lmsA = pow( kCONEtoLMS*colA, vec3(1.0/3.0) );
+		vec3 lmsB = pow( kCONEtoLMS*colB, vec3(1.0/3.0) );
+		// lerp
+		vec3 lms = mix( lmsA, lmsB, h );
+		// gain in the middle (no oaklab anymore, but looks better?)
+	 // lms *= 1.0+0.2*h*(1.0-h);
+		// cone to rgb
+		return kLMStoCONE*(lms*lms*lms);
+	}
+	
+
 	void main() {
 		vec3 pos = texture2D(uPositions, position.xy).xyz;
 
@@ -145,7 +171,7 @@ const vertexShader = `
 		gl_Position = projectedPosition;
 
 		float dist = distance(pos, vec3(.0));
-		vColor = mix(uInnerColor, uOuterColor, dist * distanceColorMultiplier);
+		vColor = oklab_mix(uInnerColor, uOuterColor, dist * distanceColorMultiplier);
 
 	}
 
@@ -167,6 +193,7 @@ const simulationFragmentShader = `
 	uniform float uF;
 
 	varying vec2 vUv;
+	const float PI = 3.1415926535897932384626433832795;
 
 	${curlNoise}
 
@@ -596,6 +623,28 @@ const simulationFragmentShader = `
 		return vec3(dx, dy, dz);
 	}
 
+	vec3 ruSack(vec3 pos) {
+		float a = uA;
+		float b = uB;
+
+		// Timestep 
+		float dt = 0.03;
+		
+		float x = pos.x;
+		float y = pos.y;
+		float z = pos.z;
+		float dx, dy, dz;
+
+		// dx=(1.+(sin(PI * a) * sin(PI * b))) * sin((4. * PI) * b);
+		// dy=(1.+(sin(PI * a) * sin(PI * b))) * cos((4. * PI) * b);
+		// dz=(cos(PI * a) * sin(PI * b))+(4. * b) - 2.;
+		dx = sin(x);
+		dy = cos(y);
+		dz = sin(x);
+
+		return vec3(dx, dy, dz);
+	}
+
 	void main() {
 		vec3 pos = texture2D(positions, vUv).rgb;
 		vec3 delta;
@@ -670,6 +719,10 @@ const simulationFragmentShader = `
 
 		if (attractor == 17.) {
 			delta = fourWingAttractor(pos);
+		}
+
+		if (attractor == 18.) {
+			delta = ruSack(pos);
 		}
 
 
@@ -892,6 +945,11 @@ const FourWingParams = {
 	c: -0.4
 }
 
+const idk = {
+	a: 0.5,
+	b: 0.5
+}
+
 
 const mapParamToLevaParam = (param) => {
 	return Object.entries(param).reduce((acc, [key, value]) => {
@@ -942,6 +1000,8 @@ const getBaseParamsPerAttractor = (attractorId, mapToLeva = true) => {
 			return mapToLeva ? mapParamToLevaParam(SprottParams) : SprottParams
 		case 17:
 			return mapToLeva ? mapParamToLevaParam(FourWingParams) : FourWingParams
+		case 18:
+			return mapToLeva ? mapParamToLevaParam(idk) : idk
 		default:
 			return {};
 	}
@@ -980,6 +1040,7 @@ const Particles = () => {
 				'Arneodo Attractor (might not work corrently on all GPUs)': 5,
 				'Just curl noise': -1,
 				'quadraticStrangeAttractor (WIP)': 14,
+				'idk': 18,
 			}
 		},
 		innerColor: {
@@ -999,14 +1060,14 @@ const Particles = () => {
 			min: 0,
 			max: 0.3,
 			step: 0.01,
-			onChange: (v) => simulationUniforms.uCurlIntensity.value = v,
+			onChange: (v) => {simulationUniforms.uCurlIntensity.value = v},
 		},
 		curlAmplitude: {
 			value: 0,
 			min: 0,
 			max: 0.3,
 			step: 0.01,
-			onChange: (v) => simulationUniforms.uCurlAmplitude.value = v,
+			onChange: (v) => {simulationUniforms.uCurlAmplitude.value = v},
 		},
 
 		backgroundColor: {
@@ -1037,14 +1098,14 @@ const Particles = () => {
 				min: 1,
 				max: 10,
 				step: 1,
-				onChange: (v) => uniforms.uParticleSize.value = v,
+				onChange: (v) => {uniforms.uParticleSize.value = v},
 			},
 			sizeAttenuationMultiplier: {
 				value: 6.5,
 				min: 1,
 				max: 12,
 				step: 0.5,
-				onChange: (v) => uniforms.uSizeAttenuationMultiplier.value = v,
+				onChange: (v) => {uniforms.uSizeAttenuationMultiplier.value = v},
 			}
 		}, {
 			collapsed: true
@@ -1094,7 +1155,7 @@ const Particles = () => {
 		const particles = new Float32Array(length * 3);
 
 		for (let i = 0; i < length; i++) {
-			let i3 = i * 3;
+			const i3 = i * 3;
 			particles[i3 + 0] = (i % particlesCount) / particlesCount;
 			particles[i3 + 1] = i / particlesCount / particlesCount;
 		}
