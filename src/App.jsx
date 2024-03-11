@@ -1073,7 +1073,7 @@ const Particles = () => {
 		},
 
 		backgroundColor: {
-			value: new Color(0.12, 0.12, 0.12).multiplyScalar(255),
+			value: new Color(0.01, 0.01, 0.01).multiplyScalar(255),
 			onChange: (v) => {
 				currentScene.background = new Color(v.r, v.g, v.b).multiplyScalar(1 / 255)
 			}
@@ -1280,6 +1280,7 @@ export default function App() {
 				{/* <Stats /> */}
 				<OrbitControls />
 				<ambientLight intensity={1} />
+				<PostEffects />
 				<Suspense fallback={null}>
 					<Scene />
 				</Suspense>
@@ -1292,7 +1293,13 @@ export default function App() {
 const PostEffects = () => {
 	return (
 		<EffectComposer>
-			<Bloom luminanceThreshold={0.8} luminanceSmoothing={0.1} height={200} />
+			<Bloom 
+				mipmapBlur
+                intensity={1.95}
+                radius={0.5}
+                luminanceThreshold={0.2}
+                luminanceSmoothing={0.5}
+			/>
 		</EffectComposer>
 	);
 };
